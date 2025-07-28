@@ -1,18 +1,15 @@
 name: Deploy AWS Flashcards to GitHub Pages
 
-# Déclencheurs : push sur main ou workflow_dispatch manuel
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-# Permissions nécessaires pour GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Permet un seul déploiement à la fois
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -35,18 +32,12 @@ jobs:
       - name: 📁 Create deployment directory
         run: |
           mkdir -p _site
-          
-          # Copier tous les fichiers essentiels vers _site
-          cp flashcards.html _site/index.html  # Renommer en index.html pour GitHub Pages
+          cp index.html _site/ || cp flashcards.html _site/index.html
           cp script.js _site/
           cp styles.css _site/
           cp aws_questions_extracted.json _site/
-          cp README.md _site/
-          
-          # Créer un fichier .nojekyll pour éviter le traitement Jekyll
           touch _site/.nojekyll
-          
-          echo "✅ Site déployé avec les fichiers suivants :"
+          echo "✅ Fichiers préparés pour le déploiement"
           ls -la _site/
 
       - name: 📤 Upload artifact
@@ -61,10 +52,4 @@ jobs:
       - name: 📋 Summary
         run: |
           echo "🎉 Déploiement terminé !"
-          echo "📱 Application accessible à : ${{ steps.deployment.outputs.page_url }}"
-          echo "📊 Fichiers déployés :"
-          echo "  - index.html (interface principale)"
-          echo "  - script.js (logique JavaScript)"
-          echo "  - styles.css (styles CSS)"
-          echo "  - aws_questions_extracted.json (407 questions AWS)"
-          echo "  - README.md (documentation)"
+          echo "📱 Site accessible à : ${{ steps.deployment.outputs.page_url }}"

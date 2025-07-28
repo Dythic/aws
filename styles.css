@@ -413,6 +413,90 @@ body {
     color: var(--aws-orange);
 }
 
+/* Sélecteur de langue */
+.language-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+}
+
+.language-selector label {
+    color: var(--white);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.language-selector select {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--aws-dark-blue);
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    outline: none;
+}
+
+.language-selector select:hover {
+    background: var(--light-gray);
+    transform: translateY(-1px);
+}
+
+.language-selector select:focus {
+    box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.3);
+}
+
+/* Indication réponses multiples */
+.multiple-choice-hint {
+    background: var(--warning-yellow);
+    color: var(--aws-dark-blue);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.multiple-choice-hint i {
+    color: var(--aws-orange);
+}
+
+/* Style amélioré pour réponses multiples */
+.answer-option.multiple-choice {
+    position: relative;
+}
+
+.answer-option.multiple-choice::before {
+    content: '☐';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: var(--dark-gray);
+    transition: var(--transition);
+}
+
+.answer-option.multiple-choice.selected::before {
+    content: '☑';
+    color: var(--success-green);
+}
+
+.answer-option.multiple-choice.correct::before {
+    content: '☑';
+    color: var(--success-green);
+}
+
 /* Overlay de chargement */
 .loading-overlay {
     position: fixed;

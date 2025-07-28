@@ -1,0 +1,28 @@
+name: Deploy AWS Flashcards (Simple)
+
+# Workflow de secours si le workflow principal ne fonctionne pas
+on:
+  workflow_dispatch:  # Déclenchement manuel uniquement
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy to GitHub Pages (Simple)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
+          force_orphan: true
+          exclude_assets: '.github,README.md'
+
+      - name: 📋 Summary
+        run: |
+          echo "🎉 Déploiement simple terminé !"
+          echo "📱 Si l'activation réussit, l'application sera accessible à :"
+          echo "   https://dythic.github.io/aws/"

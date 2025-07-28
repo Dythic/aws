@@ -3,7 +3,7 @@ class AWSFlashcards {
     constructor() {
         this.questions = [];
         this.currentQuestionIndex = 0;
-        this.selectedAnswer = null;
+        this.selectedAnswers = new Set(); // Support des réponses multiples
         this.sessionStats = {
             totalAnswered: 0,
             correctCount: 0,
@@ -12,6 +12,8 @@ class AWSFlashcards {
         this.markedQuestions = new Set();
         this.incorrectQuestions = new Set();
         this.isAnswerShown = false;
+        this.currentLanguage = 'fr'; // Langue par défaut
+        this.translations = this.getTranslations();
         
         this.initializeElements();
         this.attachEventListeners();
@@ -49,7 +51,10 @@ class AWSFlashcards {
             loadingOverlay: document.getElementById('loadingOverlay'),
             
             // Modes
-            modeRadios: document.querySelectorAll('input[name="mode"]')
+            modeRadios: document.querySelectorAll('input[name="mode"]'),
+            
+            // Langue
+            languageSelector: document.getElementById('languageSelector')
         };
     }
 
@@ -73,6 +78,13 @@ class AWSFlashcards {
                 }
             });
         });
+
+        // Sélecteur de langue
+        if (this.elements.languageSelector) {
+            this.elements.languageSelector.addEventListener('change', (e) => {
+                this.changeLanguage(e.target.value);
+            });
+        }
 
         // Raccourcis clavier
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -142,7 +154,7 @@ class AWSFlashcards {
         
         // Réinitialiser l'état
         this.isAnswerShown = false;
-        this.selectedAnswer = null;
+        this.selectedAnswers.clear();
         this.elements.correctAnswer.style.display = 'none';
         
         // Afficher la question
@@ -167,6 +179,19 @@ class AWSFlashcards {
     displayAnswerOptions(question) {
         this.elements.answerOptions.innerHTML = '';
         
+        const isMultipleChoice = question.correct_answers.length > 1;
+        
+        // Ajouter l'indication pour les réponses multiples
+        if (isMultipleChoice && !this.isAnswerShown) {
+            const hintDiv = document.createElement('div');
+            hintDiv.className = 'multiple-choice-hint';
+            hintDiv.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                ${this.getTranslation('multiple_choice_hint')}
+            `;
+            this.elements.answerOptions.appendChild(hintDiv);
+        }
+        
         const options = ['A', 'B', 'C', 'D', 'E'];
         
         options.forEach(letter => {
@@ -178,15 +203,20 @@ class AWSFlashcards {
                 optionDiv.className = 'answer-option';
                 optionDiv.dataset.answer = letter;
                 
+                // Ajouter la classe pour réponses multiples
+                if (isMultipleChoice) {
+                    optionDiv.classList.add('multiple-choice');
+                }
+                
                 // Si la réponse a été montrée, colorer les bonnes/mauvaises réponses
                 if (this.isAnswerShown) {
                     if (question.correct_answers.includes(letter)) {
                         optionDiv.classList.add('correct');
                     }
-                    if (this.selectedAnswer === letter && !question.correct_answers.includes(letter)) {
+                    if (this.selectedAnswers.has(letter) && !question.correct_answers.includes(letter)) {
                         optionDiv.classList.add('incorrect');
                     }
-                    if (this.selectedAnswer === letter) {
+                    if (this.selectedAnswers.has(letter)) {
                         optionDiv.classList.add('selected');
                     }
                 } else {
@@ -210,20 +240,39 @@ class AWSFlashcards {
         
         console.log('Réponse sélectionnée:', letter);
         
-        // Retirer la sélection précédente
-        document.querySelectorAll('.answer-option.selected').forEach(el => {
-            el.classList.remove('selected');
-        });
+        const question = this.questions[this.currentQuestionIndex];
+        const isMultipleChoice = question.correct_answers.length > 1;
         
-        // Sélectionner la nouvelle réponse
-        this.selectedAnswer = letter;
         const selectedOption = document.querySelector(`[data-answer="${letter}"]`);
-        if (selectedOption) {
+        
+        if (isMultipleChoice) {
+            // Mode réponses multiples - toggle la sélection
+            if (this.selectedAnswers.has(letter)) {
+                this.selectedAnswers.delete(letter);
+                selectedOption.classList.remove('selected');
+            } else {
+                this.selectedAnswers.add(letter);
+                selectedOption.classList.add('selected');
+            }
+        } else {
+            // Mode réponse unique - remplacer la sélection
+            document.querySelectorAll('.answer-option.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            this.selectedAnswers.clear();
+            this.selectedAnswers.add(letter);
             selectedOption.classList.add('selected');
         }
         
-        // Changer le bouton
-        this.elements.showAnswerBtn.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier ma réponse';
+        // Mettre à jour le bouton
+        const selectedCount = this.selectedAnswers.size;
+        if (selectedCount > 0) {
+            const buttonText = this.getTranslation('checkAnswer');
+            this.elements.showAnswerBtn.innerHTML = `<i class="fas fa-check-circle"></i> ${buttonText}`;
+        } else {
+            const buttonText = this.getTranslation('showAnswer');
+            this.elements.showAnswerBtn.innerHTML = `<i class="fas fa-eye"></i> ${buttonText}`;
+        }
     }
 
     showAnswer() {
@@ -235,9 +284,10 @@ class AWSFlashcards {
         console.log('Affichage de la réponse');
         
         // Si une réponse était sélectionnée, marquer automatiquement
-        if (this.selectedAnswer) {
-            const isCorrect = question.correct_answers.includes(this.selectedAnswer);
-            console.log('Auto-évaluation:', this.selectedAnswer, 'correcte:', isCorrect);
+        if (this.selectedAnswers.size > 0) {
+            const selectedAnswers = Array.from(this.selectedAnswers);
+            const isCorrect = this.areAnswersCorrect(selectedAnswers, question.correct_answers);
+            console.log('Auto-évaluation:', selectedAnswers, 'correcte:', isCorrect);
             this.sessionStats.totalAnswered++;
             if (isCorrect) {
                 this.sessionStats.correctCount++;
@@ -252,11 +302,12 @@ class AWSFlashcards {
         
         // Afficher la bonne réponse
         const correctAnswersText = question.correct_answers.join(', ');
-        this.elements.correctAnswerText.textContent = `Bonne(s) réponse(s): ${correctAnswersText}`;
+        const correctText = this.getTranslation('correctAnswer');
+        this.elements.correctAnswerText.textContent = `${correctText}: ${correctAnswersText}`;
         this.elements.correctAnswer.style.display = 'block';
         
         // Changer les contrôles
-        if (this.selectedAnswer) {
+        if (this.selectedAnswers.size > 0) {
             // Si réponse sélectionnée, montrer directement "Suivant"
             this.elements.showAnswerBtn.style.display = 'none';
             this.elements.correctBtn.style.display = 'none';
@@ -293,7 +344,11 @@ class AWSFlashcards {
             this.currentQuestionIndex++;
             this.displayQuestion();
         } else {
-            if (confirm('Vous avez terminé toutes les questions ! Voulez-vous recommencer ?')) {
+            const message = this.currentLanguage === 'fr' 
+                ? 'Vous avez terminé toutes les questions ! Voulez-vous recommencer ?'
+                : 'You have completed all questions! Do you want to restart?';
+                
+            if (confirm(message)) {
                 this.resetSession();
             }
         }
@@ -301,7 +356,7 @@ class AWSFlashcards {
 
     resetControls() {
         this.elements.showAnswerBtn.style.display = 'inline-flex';
-        this.elements.showAnswerBtn.innerHTML = '<i class="fas fa-eye"></i> Voir la réponse';
+        this.elements.showAnswerBtn.innerHTML = `<i class="fas fa-eye"></i> ${this.getTranslation('showAnswer')}`;
         this.elements.correctBtn.style.display = 'none';
         this.elements.incorrectBtn.style.display = 'none';
         this.elements.nextBtn.style.display = 'none';
@@ -326,10 +381,10 @@ class AWSFlashcards {
         const currentIndex = this.currentQuestionIndex;
         if (this.markedQuestions.has(currentIndex)) {
             this.elements.flashcard.classList.add('marked');
-            this.elements.markBtn.innerHTML = '<i class="fas fa-bookmark"></i> Marqué';
+            this.elements.markBtn.innerHTML = `<i class="fas fa-bookmark"></i> ${this.getTranslation('marked')}`;
         } else {
             this.elements.flashcard.classList.remove('marked');
-            this.elements.markBtn.innerHTML = '<i class="fas fa-bookmark"></i> Marquer';
+            this.elements.markBtn.innerHTML = `<i class="fas fa-bookmark"></i> ${this.getTranslation('mark')}`;
         }
     }
 
@@ -344,7 +399,11 @@ class AWSFlashcards {
     }
 
     shuffleQuestions() {
-        if (confirm('Voulez-vous mélanger les questions ? Cela recommencera la session.')) {
+        const message = this.currentLanguage === 'fr' 
+            ? 'Voulez-vous mélanger les questions ? Cela recommencera la session.'
+            : 'Do you want to shuffle the questions? This will restart the session.';
+            
+        if (confirm(message)) {
             for (let i = this.questions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [this.questions[i], this.questions[j]] = [this.questions[j], this.questions[i]];
@@ -355,6 +414,7 @@ class AWSFlashcards {
 
     resetSession() {
         this.currentQuestionIndex = 0;
+        this.selectedAnswers.clear();
         this.sessionStats = {
             totalAnswered: 0,
             correctCount: 0,
@@ -374,7 +434,10 @@ class AWSFlashcards {
                 break;
             case 'review':
                 if (this.incorrectQuestions.size === 0) {
-                    alert('Aucune question incorrecte à réviser !');
+                    const message = this.currentLanguage === 'fr' 
+                        ? 'Aucune question incorrecte à réviser !'
+                        : 'No incorrect questions to review!';
+                    alert(message);
                     document.querySelector('input[name="mode"][value="study"]').checked = true;
                 } else {
                     // Filtrer les questions incorrectes
@@ -482,6 +545,99 @@ class AWSFlashcards {
                 this.shuffleQuestions();
                 break;
         }
+    }
+
+    // Méthode pour comparer les réponses
+    areAnswersCorrect(selectedAnswers, correctAnswers) {
+        if (selectedAnswers.length !== correctAnswers.length) return false;
+        const selectedSet = new Set(selectedAnswers);
+        const correctSet = new Set(correctAnswers);
+        for (let answer of selectedSet) {
+            if (!correctSet.has(answer)) return false;
+        }
+        return true;
+    }
+
+    // Système de traductions
+    getTranslations() {
+        return {
+            fr: {
+                showAnswer: 'Voir la réponse',
+                checkAnswer: 'Vérifier ma réponse',
+                correctAnswer: 'Bonne(s) réponse(s)',
+                correct: 'Correct',
+                incorrect: 'Incorrect',
+                next: 'Suivant',
+                shuffle: 'Mélanger',
+                restart: 'Recommencer',
+                mark: 'Marquer',
+                marked: 'Marqué',
+                studyMode: 'Mode Étude',
+                quizMode: 'Mode Quiz',
+                reviewMode: 'Révision Erreurs',
+                question: 'Question',
+                total: 'Total',
+                correct_answers: 'Correctes',
+                accuracy: 'Précision',
+                multiple_choice_hint: 'Question à réponses multiples - Sélectionnez toutes les bonnes réponses'
+            },
+            en: {
+                showAnswer: 'Show answer',
+                checkAnswer: 'Check my answer',
+                correctAnswer: 'Correct answer(s)',
+                correct: 'Correct',
+                incorrect: 'Incorrect',
+                next: 'Next',
+                shuffle: 'Shuffle',
+                restart: 'Restart',
+                mark: 'Mark',
+                marked: 'Marked',
+                studyMode: 'Study Mode',
+                quizMode: 'Quiz Mode',
+                reviewMode: 'Review Errors',
+                question: 'Question',
+                total: 'Total',
+                correct_answers: 'Correct',
+                accuracy: 'Accuracy',
+                multiple_choice_hint: 'Multiple choice question - Select all correct answers'
+            }
+        };
+    }
+
+    getTranslation(key) {
+        return this.translations[this.currentLanguage][key] || this.translations.fr[key] || key;
+    }
+
+    changeLanguage(lang) {
+        this.currentLanguage = lang;
+        this.updateInterface();
+    }
+
+    updateInterface() {
+        // Mettre à jour tous les textes de l'interface
+        document.querySelector('.stat-label[for="currentQuestion"]') && (document.querySelector('.stat-label').textContent = this.getTranslation('question'));
+        
+        // Mettre à jour les boutons
+        if (this.elements.showAnswerBtn && !this.isAnswerShown) {
+            this.elements.showAnswerBtn.innerHTML = `<i class="fas fa-eye"></i> ${this.getTranslation('showAnswer')}`;
+        }
+        if (this.elements.correctBtn) {
+            this.elements.correctBtn.innerHTML = `<i class="fas fa-check"></i> ${this.getTranslation('correct')}`;
+        }
+        if (this.elements.incorrectBtn) {
+            this.elements.incorrectBtn.innerHTML = `<i class="fas fa-times"></i> ${this.getTranslation('incorrect')}`;
+        }
+        if (this.elements.nextBtn) {
+            this.elements.nextBtn.innerHTML = `<i class="fas fa-arrow-right"></i> ${this.getTranslation('next')}`;
+        }
+        if (this.elements.shuffleBtn) {
+            this.elements.shuffleBtn.innerHTML = `<i class="fas fa-random"></i> ${this.getTranslation('shuffle')}`;
+        }
+        if (this.elements.resetBtn) {
+            this.elements.resetBtn.innerHTML = `<i class="fas fa-redo"></i> ${this.getTranslation('restart')}`;
+        }
+        
+        this.updateMarkStatus();
     }
 }
 
