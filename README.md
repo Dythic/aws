@@ -2,6 +2,11 @@
 
 Une application interactive de flashcards pour réviser et passer l'examen AWS Cloud Practitioner CLF-C02.
 
+## 🌐 Accès en ligne
+**[✨ Utiliser l'application en ligne ✨](https://dythic.github.io/aws/)**
+
+L'application est déployée automatiquement sur GitHub Pages et accessible depuis n'importe où !
+
 ## 🚀 Fonctionnalités
 
 ### 📚 Modes d'étude
@@ -80,6 +85,22 @@ aws/
 ```
 
 **C'est tout !** Le repository a été nettoyé pour ne contenir que les fichiers essentiels au fonctionnement de l'application.
+
+## 🌐 Déploiement GitHub Pages
+
+L'application est automatiquement déployée sur GitHub Pages via GitHub Actions :
+
+- **URL publique** : https://dythic.github.io/aws/
+- **Déploiement automatique** : À chaque push sur `main`
+- **Workflow** : `.github/workflows/deploy.yml`
+- **Statut** : ![Deploy Status](https://github.com/Dythic/aws/actions/workflows/deploy.yml/badge.svg)
+
+### Comment ça fonctionne
+1. **Push vers GitHub** : Le code est envoyé sur la branche `main`
+2. **GitHub Actions** : Le workflow se déclenche automatiquement
+3. **Build** : Les fichiers sont copiés vers `_site/`
+4. **Deploy** : Le site est publié sur GitHub Pages
+5. **Accessible** : L'application est disponible publiquement
 
 ## 🎨 Interface utilisateur
 
